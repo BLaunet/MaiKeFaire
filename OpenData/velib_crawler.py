@@ -18,5 +18,5 @@ df = pd.DataFrame(data)
 df['query_datetime'] = query_datetime
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-path = dir_path+'/data/velib_dispo_{}.csv'.format(query_datetime.strftime("%Y_%m_%d_%H_%M_%S"))
+path = dir_path+'/data/velib_dispo_{}.csv'.format(query_datetime.strftime("%Y_%m_%d_%H_%M"))
 df.to_csv(path, index=False)
