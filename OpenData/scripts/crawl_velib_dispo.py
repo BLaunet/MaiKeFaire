@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from opendata_crawler.utils.api import OpenDataCrawler
+from opendata_crawler.crawler import OpenDataCrawler
 import pandas as pd
 import datetime
 from pathlib import Path
