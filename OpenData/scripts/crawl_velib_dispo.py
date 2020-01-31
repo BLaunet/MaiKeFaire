@@ -6,10 +6,10 @@ from pathlib import Path
 import argparse
 
 parser = argparse.ArgumentParser(description='Crawls https://opendata.paris.fr/api/records/1.0/search/?dataset=velib-disponibilite-en-temps-reel and save as a csv')
-parser.add_argument('--data_dir', help='absolute path of the directory where to save the csv. default to ./data', type=str)
+parser.add_argument('--data_dir', help='Path of the directory where to save the csv. Defaults to ./data', type=str, default='./data')
 args = parser.parse_args()
 
-def crawl_velib_dispo(data_dir=None):
+def crawl_velib_dispo(data_dir):
     velib_crawler = OpenDataCrawler('velib-disponibilite-en-temps-reel')
     ##first get total number of rows
     params={'rows':1}
@@ -24,10 +24,7 @@ def crawl_velib_dispo(data_dir=None):
     df = pd.DataFrame(data)
     df['query_datetime'] = query_datetime
 
-    if not data_dir:
-        data_dir = Path('./data')
-    else:
-        data_dir = Path(data_dir)
+    data_dir = Path(data_dir)
     if not data_dir.exists():
         data_dir.mkdir()
     path = data_dir / "velib_dispo_{}.csv".format(query_datetime.strftime("%Y_%m_%d_%H_%M"))

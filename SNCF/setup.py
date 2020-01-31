@@ -6,6 +6,9 @@ setup(
     packages=packages,
     url='https://github.com/BLaunet/MaiKeFaire',
     version=version,
+    scripts=[
+        'scripts/crawl_trip.py'
+    ],
     include_package_data=False,
     platforms='any',
 )
