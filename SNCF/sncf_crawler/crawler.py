@@ -15,10 +15,11 @@ logger = configureLogger(logging.INFO)
 class SncfCrawler:
     BASE_URL = "https://www.oui.sncf/{}"
     def __init__(self, origin, destination, discountCard=None, wait=30):
+        self._wait = int(wait)
         self.origin = City(origin)
+        time.sleep(self._wait)
         self.destination = City(destination)
         self.discountCard = discountCard if discountCard else discountCards.SANS_CARTE
-        self._wait = int(wait)
 
     def getProposals(self, startDate, endDate=None):
         self.startDate = parse_date(startDate)
