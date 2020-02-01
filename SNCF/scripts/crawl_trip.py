@@ -23,7 +23,7 @@ def crawl_trip(data_dir, origin, destination, discountCard, nr_of_days):
     data_dir = Path(data_dir) / '{}_{}'.format(trip.origin.code, trip.destination.code)
     if not data_dir.exists():
         data_dir.mkdir(parents=True)
-    path = data_dir / "{}.csv".format(datetime.date.today().strftime("%Y_%m_%d_%H_%M"))
+    path = data_dir / "{}.csv".format(datetime.datetime.now().strftime("%Y_%m_%d_%H_%M"))
     trip.offers.to_csv(path, index=False)
 
 if __name__ == "__main__":
