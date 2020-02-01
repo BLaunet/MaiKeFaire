@@ -9,7 +9,7 @@ class City:
         except e:
             raise requests.exceptions.ConnectionError(e)
         if self._request.status_code != 200:
-            raise requests.exceptions.RequestException(self._request.status_code, self.requests.text)
+            raise requests.exceptions.RequestException(self._request.status_code, self._request.text)
         if len(self._request.json()) == 0:
             raise NameError('Unknown city name: {}'.format(city_name))
         else:
