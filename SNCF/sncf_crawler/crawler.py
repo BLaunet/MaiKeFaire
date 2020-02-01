@@ -8,16 +8,15 @@ import time
 from sncf_crawler.city import City
 from sncf_crawler.utils.functions import parse_date, simplifyOffers
 from sncf_crawler.utils.logger import configureLogger
+from sncf_crawler.utils import requests
 from sncf_crawler.discountCards import discountCards
 
 logger = configureLogger(logging.INFO)
 
 class SncfCrawler:
     BASE_URL = "https://www.oui.sncf/{}"
-    def __init__(self, origin, destination, discountCard=None, wait=30):
-        self._wait = int(wait)
+    def __init__(self, origin, destination, discountCard=None):
         self.origin = City(origin)
-        time.sleep(self._wait)
         self.destination = City(destination)
         self.discountCard = discountCard if discountCard else discountCards.SANS_CARTE
 
@@ -32,7 +31,6 @@ class SncfCrawler:
         results = []
         while True:
             self._wish = self._getWishObject(self._generateInitialWishId())
-            time.sleep(self._wait)
             logger.debug("Original wish: {}".format(json.dumps(self._wish, indent=2)))
             proposals, nextPagination = self._getFirstProposals()
             if not proposals:
@@ -45,7 +43,6 @@ class SncfCrawler:
         results+=simplifyOffers(proposals)
         days=1
         while days < daysSpan:
-            time.sleep(self._wait)
             if nextPagination['type'] == 'NEXT_HOUR':
                 proposals, nextPagination = self._getNextProposals(proposals)
             if nextPagination['type'] == 'NEXT_DAY':

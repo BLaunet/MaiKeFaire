@@ -1,4 +1,5 @@
-import requests
+from requests import exceptions
+from sncf_crawler.utils import requests
 
 class City:
     _base_url = "https://www.oui.sncf/booking/autocomplete-d2d?uc=fr-FR&searchField=origin&searchTerm={}"
@@ -7,9 +8,9 @@ class City:
         try:
             self._request = requests.get(City._base_url.format(self.name))
         except e:
-            raise requests.exceptions.ConnectionError(e)
+            raise exceptions.ConnectionError(e)
         if self._request.status_code != 200:
-            raise requests.exceptions.RequestException(self._request.status_code, self._request.text)
+            raise exceptions.RequestException(self._request.status_code, self._request.text)
         if len(self._request.json()) == 0:
             raise NameError('Unknown city name: {}'.format(city_name))
         else:
