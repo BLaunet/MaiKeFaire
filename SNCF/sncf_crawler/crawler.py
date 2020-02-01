@@ -149,7 +149,6 @@ class SncfCrawler:
         try:
             return r.json()['travelProposals'], r.json()['nextPagination']
         except:
-            print(r.status_code, r.json())
             return None, None
 
     def _getNextDayWish(self):
