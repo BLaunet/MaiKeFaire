@@ -1,7 +1,7 @@
 import requests
 import time
 
-SLEEP_TIME=5
+SLEEP_TIME=30
 def wait(waiting_time):
     def timer(func):
         def wrapped(*args, **kwargs):
