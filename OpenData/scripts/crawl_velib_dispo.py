@@ -26,7 +26,7 @@ def crawl_velib_dispo(data_dir):
 
     data_dir = Path(data_dir)
     if not data_dir.exists():
-        data_dir.mkdir()
+        data_dir.mkdir(parents=True)
     path = data_dir / "velib_dispo_{}.csv".format(query_datetime.strftime("%Y_%m_%d_%H_%M"))
     df.to_csv(path, index=False)
 
