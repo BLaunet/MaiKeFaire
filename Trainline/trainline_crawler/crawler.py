@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import time
 from requests.exceptions import RequestException
-from trainline_crawler.utils import wait, configureLogger, LogDecorator, TooManyCallsError
+from trainline_crawler.utils import retry, configureLogger, LogDecorator, TooManyCallsError
 from trainline_crawler.station import Station
 
 class TrainlineCrawler:
@@ -30,19 +30,19 @@ class TrainlineCrawler:
           'referer': 'https://www.trainline.fr/'
         }
     _logger_name = "trainline-logger"
-    def __init__(self, origin, destination, discountCard, waiting_time=10, log_level='INFO'):
+    def __init__(self, origin, destination, discountCard, max_waiting_time=20, log_level='INFO'):
         self.logger = configureLogger(self._logger_name, log_level)
         self.origin = Station(origin)
         self.destination = Station(destination)
         self.discountCard = discountCard
-        self.set_waiting_time(waiting_time)
+        self.set_max_waiting_time(max_waiting_time)
         self.logger.info("Initialized trip {} -> {}".format(self.origin.name, self.destination.name))
 
-    def set_waiting_time(self, waiting_time):
-        self.waiting_time = waiting_time
-        self.logger.debug("Setting waiting time: %ss"%self.waiting_time)
-        self.make_initial_request = wait(self.waiting_time)(self._make_initial_request)
-        self.make_next_request = wait(self.waiting_time)(self._make_next_request)
+    def set_max_waiting_time(self, max_waiting_time):
+        self.max_waiting_time = max_waiting_time
+        self.logger.debug("Setting waiting time: %ss"%self.max_waiting_time)
+        self.make_initial_request = retry(self.max_waiting_time)(self._make_initial_request)
+        self.make_next_request = retry(self.max_waiting_time)(self._make_next_request)
 
     def getProposals(self, start_date, end_date=None):
         self.request_counter = 0
@@ -135,105 +135,110 @@ class TrainlineCrawler:
             raise RequestException(400, "requested url", url)
         return response
     def make_proposal(self, response):
-        trips = pd.DataFrame(response.json()["trips"])
-        stations = pd.DataFrame(response.json()["stations"])
-        segments = pd.DataFrame(response.json()["segments"])
+        try:
+            trips = pd.DataFrame(response.json()["trips"])
+            stations = pd.DataFrame(response.json()["stations"])
+            segments = pd.DataFrame(response.json()["segments"])
 
-        # keeping only direct trips
-        trips = trips[trips["segment_ids"].apply(lambda l: len(l)) == 1]
-        trips.loc[:, "segment_id"] = trips["segment_ids"].apply(lambda l: l[0])
-        trips.loc[:, "price"] = trips["cents"]/100.
-        trips.loc[trips['short_unsellable_reason'].notna(), 'price'] = np.nan
+            # keeping only direct trips
+            trips = trips[trips["segment_ids"].apply(lambda l: len(l)) == 1]
+            trips.loc[:, "segment_id"] = trips["segment_ids"].apply(lambda l: l[0])
+            trips.loc[:, "price"] = trips["cents"]/100.
+            # sometimes, short_unsellable_reason is not present
+            if 'short_unsellable_reason' in trips.columns:
+                trips.loc[trips['short_unsellable_reason'].notna(), 'price'] = np.nan
 
 
-        trips = trips[[
-            "departure_date",
-            "departure_station_id",
-            "arrival_date",
-            "arrival_station_id",
-            "price",
-            "currency",
-            "short_unsellable_reason",
-            "segment_id"
-        ]]
-        trips = trips.astype({'departure_station_id': 'str', 'arrival_station_id': 'str'})
-        trips.loc[:, "departure_date"] = pd.to_datetime(trips["departure_date"], format="%Y-%m-%dT%H:%M:%S%z")
-        trips.loc[:, "arrival_date"] = pd.to_datetime(trips["arrival_date"], format="%Y-%m-%dT%H:%M:%S%z")
-
-        # add station_names
-        stations_columns = [
-            "id",
-            "name",
-            "latitude",
-            "longitude",
-            "country"
-        ]
-        stations = stations[stations_columns]
-        stations = stations.astype({'id': 'str'})
-        # departure stations
-        stations.set_axis(['departure_station_{}'.format(col) for col in stations_columns], axis=1, inplace=True)
-        trips = trips.merge(
-            stations,
-            on="departure_station_id",
-            how="left"
-        )
-        # arrival stations
-        stations.set_axis(['arrival_station_{}'.format(col) for col in stations_columns], axis=1, inplace=True)
-        trips = trips.merge(
-            stations,
-            on="arrival_station_id",
-            how="left"
-        )
-        # add segment details
-        segments.loc[:, "segment_id"] = segments["id"]
-        segments = segments[[
-            "segment_id",
-            "carrier",
-            "co2_emission",
-            "train_name",
-            "train_number",
-            "travel_class"
-        ]]
-
-        trips = trips.merge(
-            segments,
-            on="segment_id",
-            how="left"
-        )
-
-        # reordering columns for lisibility
-        columns = [
-            "departure_date",
-            "departure_station_name",
-            "arrival_date",
-            "arrival_station_name",
-            "price",
-            "currency",
-            "train_name",
-            "train_number",
-            "travel_class",
-            "short_unsellable_reason",
-            "carrier",
-            "co2_emission",
-            "departure_station_id",
-            "departure_station_latitude",
-            "departure_station_longitude",
-            "departure_station_country",
-            "arrival_station_id",
-            "arrival_station_latitude",
-            "arrival_station_longitude",
-            "arrival_station_country",
-        ]
-        trips = trips[columns]
-        trips.drop_duplicates(inplace=True)
-
-        min_price = trips.groupby(
-            [
-                "departure_station_id",
+            trips = trips[[
                 "departure_date",
-                "arrival_station_id",
+                "departure_station_id",
                 "arrival_date",
+                "arrival_station_id",
+                "price",
+                "currency",
+                "short_unsellable_reason",
+                "segment_id"
+            ]]
+            trips = trips.astype({'departure_station_id': 'str', 'arrival_station_id': 'str'})
+            trips.loc[:, "departure_date"] = pd.to_datetime(trips["departure_date"], format="%Y-%m-%dT%H:%M:%S%z")
+            trips.loc[:, "arrival_date"] = pd.to_datetime(trips["arrival_date"], format="%Y-%m-%dT%H:%M:%S%z")
+
+            # add station_names
+            stations_columns = [
+                "id",
+                "name",
+                "latitude",
+                "longitude",
+                "country"
+            ]
+            stations = stations[stations_columns]
+            stations = stations.astype({'id': 'str'})
+            # departure stations
+            stations.set_axis(['departure_station_{}'.format(col) for col in stations_columns], axis=1, inplace=True)
+            trips = trips.merge(
+                stations,
+                on="departure_station_id",
+                how="left"
+            )
+            # arrival stations
+            stations.set_axis(['arrival_station_{}'.format(col) for col in stations_columns], axis=1, inplace=True)
+            trips = trips.merge(
+                stations,
+                on="arrival_station_id",
+                how="left"
+            )
+            # add segment details
+            segments.loc[:, "segment_id"] = segments["id"]
+            segments = segments[[
+                "segment_id",
+                "carrier",
+                "co2_emission",
+                "train_name",
+                "train_number",
                 "travel_class"
-            ])["price"].rank(method='min')
-        trips = trips[(min_price == 1) | (min_price.isna())]
-        return trips
+            ]]
+
+            trips = trips.merge(
+                segments,
+                on="segment_id",
+                how="left"
+            )
+
+            # reordering columns for lisibility
+            columns = [
+                "departure_date",
+                "departure_station_name",
+                "arrival_date",
+                "arrival_station_name",
+                "price",
+                "currency",
+                "train_name",
+                "train_number",
+                "travel_class",
+                "short_unsellable_reason",
+                "carrier",
+                "co2_emission",
+                "departure_station_id",
+                "departure_station_latitude",
+                "departure_station_longitude",
+                "departure_station_country",
+                "arrival_station_id",
+                "arrival_station_latitude",
+                "arrival_station_longitude",
+                "arrival_station_country",
+            ]
+            trips = trips[columns]
+            trips.drop_duplicates(inplace=True)
+
+            min_price = trips.groupby(
+                [
+                    "departure_station_id",
+                    "departure_date",
+                    "arrival_station_id",
+                    "arrival_date",
+                    "travel_class"
+                ])["price"].rank(method='min')
+            trips = trips[(min_price == 1) | (min_price.isna())]
+            return trips
+        except Exception as e:
+            raise Exception(response.text)

@@ -11,14 +11,14 @@ parser.add_argument('--origin', help='City of origin', type=str, default='Paris'
 parser.add_argument('--destination', help='City of destination', type=str, default='Annecy')
 parser.add_argument('--discountCard', help='SNCF.AvantageJeune', type=str, default=discountCards.CARTE_JEUNE)
 parser.add_argument('--nr_of_days', help='Number of days to crawl in the future', type=int, default=60)
-parser.add_argument('--waiting_time', help='Time to wait in seconds between each http request', type=int, default=20)
+parser.add_argument('--max_waiting_time', help='Time to wait in seconds between each http request', type=int, default=20)
 parser.add_argument('--debug', help='Turn on debug mode', type=str, default='INFO')
 
 
 args = parser.parse_args()
 
-def crawl_trip(data_dir, origin, destination, discountCard, nr_of_days, waiting_time, debug):
-    trip = TrainlineCrawler(origin, destination, discountCard, waiting_time=waiting_time, log_level=debug)
+def crawl_trip(data_dir, origin, destination, discountCard, nr_of_days, max_waiting_time, debug):
+    trip = TrainlineCrawler(origin, destination, discountCard, max_waiting_time=max_waiting_time, log_level=debug)
     start_date = datetime.date.today()
     end_date = start_date + datetime.timedelta(days=nr_of_days)
     offers = trip.getProposals(start_date, end_date)

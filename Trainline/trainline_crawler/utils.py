@@ -3,14 +3,7 @@ import logging
 import functools
 import inspect
 from requests.exceptions import RequestException
-
-def wait(waiting_time):
-    def timer(func):
-        def wrapped(*args, **kwargs):
-            time.sleep(waiting_time)
-            return func(*args, **kwargs)
-        return wrapped
-    return timer
+import tenacity
 
 def configureLogger(name, level):
     # création de l'objet logger qui va nous servir à écrire dans les logs
@@ -63,3 +56,11 @@ class LogDecorator(object):
                 raise ex
             return result
         return decorated
+
+def retry(max_waiting_time):
+    return tenacity.retry(
+        reraise = True,
+        stop=tenacity.stop_after_delay(max_waiting_time),
+        wait=tenacity.wait_exponential(multiplier=1, min=1, max=max_waiting_time),
+        retry=tenacity.retry_if_exception_type(TooManyCallsError)
+    )

@@ -7,9 +7,8 @@ import pytz
 
 
 if __name__ == "__main__":
-    logger = configureLogger("trainline-logger", "DEBUG")
     discountCard = 'SNCF.AvantageJeune'
     start_date = datetime.datetime(2020, 3, 30, 4, tzinfo=pytz.timezone('CET'))
-    #end_date = datetime.datetime(2020, 4, 1, tzinfo=pytz.timezone('CET'))
-    crawler = TrainlineCrawler("paris", "auray", discountCard)
-    response = crawler.getProposals(start_date)
+    end_date = datetime.datetime(2020, 5, 28, tzinfo=pytz.timezone('CET'))
+    crawler = TrainlineCrawler("auray", "paris", discountCard, log_level='INFO')
+    response = crawler.getProposals(start_date, end_date)
