@@ -4,6 +4,7 @@ import pytz
 import pandas as pd
 import numpy as np
 import time
+from requests.exceptions import RequestException
 from trainline_crawler.utils import wait, configureLogger, LogDecorator, TooManyCallsError
 from trainline_crawler.station import Station
 
@@ -35,6 +36,7 @@ class TrainlineCrawler:
         self.destination = Station(destination)
         self.discountCard = discountCard
         self.set_waiting_time(waiting_time)
+        self.logger.info("Initialized trip {} -> {}".format(self.origin.name, self.destination.name))
 
     def set_waiting_time(self, waiting_time):
         self.waiting_time = waiting_time
@@ -97,6 +99,7 @@ class TrainlineCrawler:
                 self.request_start_date = date
             self.logger.debug("Bottom of while loop. Date = {}".format(date))
             self.logger.debug("\tis_next_available = {}".format(is_next_available))
+        self.logger.info("Got all proposals by making {} HTTP requests in {:.2f}s".format(self.request_counter, time.time() - self.query_start_time))
         # transform response in proposals
         proposals = self.make_proposal(response)
         self.proposals.append(proposals)
@@ -118,6 +121,8 @@ class TrainlineCrawler:
         response = requests.post(self._base_url, headers=self._headers, data = payload)
         if response.status_code == 429:
             raise TooManyCallsError(error_code = 429, num_requests = self.request_counter, requests_start_time=self.query_start_time)
+        if response.status_code == 400:
+            raise RequestException(400, "sent payload", payload)
         return response
     @LogDecorator(_logger_name)
     def _make_next_request(self, search):
@@ -126,6 +131,8 @@ class TrainlineCrawler:
         response = requests.get(url, headers=self._headers)
         if response.status_code == 429:
             raise TooManyCallsError(error_code = 429, num_requests = self.request_counter, requests_start_time=self.query_start_time)
+        if response.status_code == 400:
+            raise RequestException(400, "requested url", url)
         return response
     def make_proposal(self, response):
         trips = pd.DataFrame(response.json()["trips"])
