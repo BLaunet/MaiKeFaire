@@ -144,9 +144,10 @@ class TrainlineCrawler:
             trips = trips[trips["segment_ids"].apply(lambda l: len(l)) == 1]
             trips.loc[:, "segment_id"] = trips["segment_ids"].apply(lambda l: l[0])
             trips.loc[:, "price"] = trips["cents"]/100.
-            # sometimes, short_unsellable_reason is not present
-            if 'short_unsellable_reason' in trips.columns:
-                trips.loc[trips['short_unsellable_reason'].notna(), 'price'] = np.nan
+            # sometimes, short_unsellable_reason is not present - we add it for consistency
+            if 'short_unsellable_reason' not in trips.columns:
+                trips.loc[:, "short_unsellable_reason"] = None
+            trips.loc[trips['short_unsellable_reason'].notna(), 'price'] = np.nan
 
 
             trips = trips[[
