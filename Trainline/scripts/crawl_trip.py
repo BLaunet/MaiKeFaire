@@ -22,10 +22,12 @@ def crawl_trip(data_dir, origin, destination, discountCard, nr_of_days, max_wait
     start_date = datetime.date.today()
     end_date = start_date + datetime.timedelta(days=nr_of_days)
     offers = trip.getProposals(start_date, end_date)
+    query_datetime = datetime.datetime.now()
+    offers.loc[:, "query_datetime"] = query_datetime
     data_dir = Path(data_dir) / '{}_{}'.format(trip.origin.slug, trip.destination.slug)
     if not data_dir.exists():
         data_dir.mkdir(parents=True)
-    path = data_dir / "{}.csv".format(datetime.datetime.now().strftime("%Y_%m_%d_%H_%M"))
+    path = data_dir / "{}.csv".format(query_datetime.strftime("%Y_%m_%d_%H_%M"))
     offers.to_csv(path, index=False)
 
 if __name__ == "__main__":
