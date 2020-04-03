@@ -122,7 +122,7 @@ class TrainlineCrawler:
         if response.status_code == 429:
             raise TooManyCallsError(error_code = 429, num_requests = self.request_counter, requests_start_time=self.query_start_time)
         if response.status_code == 400:
-            self.logger.error("Got 400 error with response: {}".format(reponse.text))
+            self.logger.error("Got 400 error with response: {}".format(response.text))
             raise RequestException(400, "sent payload", payload)
         return response
     @LogDecorator(_logger_name)
@@ -133,7 +133,7 @@ class TrainlineCrawler:
         if response.status_code == 429:
             raise TooManyCallsError(error_code = 429, num_requests = self.request_counter, requests_start_time=self.query_start_time)
         if response.status_code == 400:
-            self.logger.error("Got 400 error with response: {}".format(reponse.text))
+            self.logger.error("Got 400 error with response: {}".format(response.text))
             raise RequestException(400, "requested url", url)
         return response
     def make_proposal(self, response):
