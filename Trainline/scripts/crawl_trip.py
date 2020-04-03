@@ -19,7 +19,7 @@ args = parser.parse_args()
 
 def crawl_trip(data_dir, origin, destination, discountCard, nr_of_days, max_waiting_time, debug):
     trip = TrainlineCrawler(origin, destination, discountCard, max_waiting_time=max_waiting_time, log_level=debug)
-    start_date = datetime.date.today()
+    start_date = datetime.datetime.now()
     end_date = start_date + datetime.timedelta(days=nr_of_days)
     offers = trip.getProposals(start_date, end_date)
     query_datetime = datetime.datetime.now()
