@@ -110,6 +110,7 @@ class TrainlineCrawler:
         self.proposals = pd.concat(self.proposals,ignore_index=True).drop_duplicates().reset_index(drop=True)
         # keeping relevant things
         self.proposals = self.proposals[(self.proposals["departure_date"] >= self.start_date) & (self.proposals["departure_date"] <= self.end_date)]
+        self.logger.info("Found {} direct trips".format(len(self.proposals.index)))
         return self.proposals
 
     def format_date(self, date):
