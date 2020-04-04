@@ -204,10 +204,13 @@ class TrainlineCrawler:
             "short_unsellable_reason",
             "segment_id"
         ]]
-        trips = trips.astype({'departure_station_id': 'str', 'arrival_station_id': 'str'})
-        trips.loc[:, "departure_date"] = pd.to_datetime(trips["departure_date"], format="%Y-%m-%dT%H:%M:%S%z")
-        trips.loc[:, "arrival_date"] = pd.to_datetime(trips["arrival_date"], format="%Y-%m-%dT%H:%M:%S%z")
-
+        try:
+            trips = trips.astype({'departure_station_id': 'str', 'arrival_station_id': 'str'})
+            trips.loc[:, "departure_date"] = pd.to_datetime(trips["departure_date"], format="%Y-%m-%dT%H:%M:%S%z")
+            trips.loc[:, "arrival_date"] = pd.to_datetime(trips["arrival_date"], format="%Y-%m-%dT%H:%M:%S%z")
+        except Exception as e:
+            self.logger.debug(trips)
+            raise Exception(response) from e
         # add station_names
         stations_columns = [
             "id",
