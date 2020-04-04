@@ -88,7 +88,7 @@ class TrainlineCrawler:
                 date+=datetime.timedelta(hours=12)
                 continue
 
-            # getting latest time we got. We need to mke sure to move forward, so pushing time by 15 minutes if
+            # getting latest time we got. We need to make sure to move forward, so pushing time by 15 minutes if
             times = [trip["departure_date"] for trip in response["trips"]]
             max_date = max([datetime.datetime.strptime(time, '%Y-%m-%dT%H:%M:%S%z') for time in times])
             if max_date > date:
@@ -101,8 +101,7 @@ class TrainlineCrawler:
             if not is_next_available:
                 proposals = self.make_proposal(response)
                 self.proposals.append(proposals)
-            self.logger.debug("Bottom of while loop. Date = {}".format(date))
-            self.logger.debug("\tis_next_available = {}".format(is_next_available))
+
         self.logger.info("Got all proposals by making {} HTTP requests in {:.2f}s".format(self.request_counter, time.time() - self.query_start_time))
         # transform response in proposals
         try:
@@ -120,7 +119,7 @@ class TrainlineCrawler:
     def format_date(self, date):
         return date.astimezone(pytz.UTC).strftime('%Y-%m-%dT%H:%M:%SUTC')
 
-    @LogDecorator(_logger_name)
+    @LogDecorator(_logger_name, output=False)
     def _request_trainline(self, param, next=False):
         self.request_counter+=1
         if next:
