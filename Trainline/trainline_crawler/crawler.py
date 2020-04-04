@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import time
 from requests.exceptions import RequestException
-from trainline_crawler.utils import retry, configureLogger, LogDecorator, TooManyCallsError
+from trainline_crawler.utils import retry, configureLogger, LogDecorator, TooManyCallsError, NoResultError
 from trainline_crawler.station import Station
 
 class TrainlineCrawler:
@@ -41,8 +41,7 @@ class TrainlineCrawler:
     def set_max_waiting_time(self, max_waiting_time):
         self.max_waiting_time = max_waiting_time
         self.logger.debug("Setting waiting time: %ss"%self.max_waiting_time)
-        self.make_initial_request = retry(self.max_waiting_time)(self._make_initial_request)
-        self.make_next_request = retry(self.max_waiting_time)(self._make_next_request)
+        self.request_trainline = retry(self.max_waiting_time)(self._request_trainline)
 
     def getProposals(self, start_date, end_date=None):
         self.request_counter = 0
@@ -73,30 +72,35 @@ class TrainlineCrawler:
         if not self.end_date.tzinfo:
             self.end_date = self.end_date.replace(tzinfo=self.start_date.tzinfo)
 
-        self.request_start_date = self.start_date
         self.logger.info("Getting proposals between {} and {}".format(self.start_date, self.end_date))
 
-        date = self.request_start_date
+        date = self.start_date
         is_next_available = False
         while date <= self.end_date:
             self.logger.debug("Top of while loop. Date = {}".format(date))
-            self.logger.debug("\tis_next_available = {}".format(is_next_available))
-            if is_next_available:
-                response = self.make_next_request(search)
-            else:
-                response = self.make_initial_request()
+            try:
+                if is_next_available:
+                    response = self.request_trainline(search["id"], next=True)
+                else:
+                    response = self.request_trainline(date)
+            except NoResultError:
+                self.logger.debug("Found no result, pushing date by 12 hours")
+                date+=datetime.timedelta(hours=12)
+                continue
 
-            # getting latest time we got
+            # getting latest time we got. We need to mke sure to move forward, so pushing time by 15 minutes if
             times = [trip["departure_date"] for trip in response["trips"]]
-            date = max([datetime.datetime.strptime(time, '%Y-%m-%dT%H:%M:%S%z') for time in times])
+            max_date = max([datetime.datetime.strptime(time, '%Y-%m-%dT%H:%M:%S%z') for time in times])
+            if max_date > date:
+                date = max_date
+            else:
+                date += datetime.timedelta(minutes=30)
 
             search = response["search"]
             is_next_available=search["is_next_available"]
             if not is_next_available:
                 proposals = self.make_proposal(response)
                 self.proposals.append(proposals)
-                date += datetime.timedelta(minutes=15)
-                self.request_start_date = date
             self.logger.debug("Bottom of while loop. Date = {}".format(date))
             self.logger.debug("\tis_next_available = {}".format(is_next_available))
         self.logger.info("Got all proposals by making {} HTTP requests in {:.2f}s".format(self.request_counter, time.time() - self.query_start_time))
@@ -117,29 +121,40 @@ class TrainlineCrawler:
         return date.astimezone(pytz.UTC).strftime('%Y-%m-%dT%H:%M:%SUTC')
 
     @LogDecorator(_logger_name)
-    def _make_initial_request(self):
-        self.logger.debug("Calling with start_date = %s"%self.format_date(self.request_start_date))
+    def _request_trainline(self, param, next=False):
+        self.request_counter+=1
+        if next:
+            # param is search_id
+            response = self._make_next_request(param)
+        else:
+            # param is date
+            response = self._make_initial_request(param)
 
-        payload = "{\"search\":{\"departure_date\":\"%s\",\"return_date\":null,\"passengers\":[{\"id\":\"b5966fff-a11a-4508-92de-5551c154d5c9\",\"label\":\"adult\",\"age\":26,\"cards\":[{\"reference\":\"%s\"}],\"cui\":null}],\"systems\":[\"sncf\",\"db\",\"idtgv\",\"ouigo\",\"trenitalia\",\"ntv\",\"hkx\",\"renfe\",\"cff\",\"benerail\",\"ocebo\",\"westbahn\",\"leoexpress\",\"locomore\",\"busbud\",\"flixbus\",\"distribusion\",\"cityairporttrain\",\"obb\",\"timetable\"],\"exchangeable_part\":null,\"source\":null,\"is_previous_available\":false,\"is_next_available\":false,\"departure_station_id\":\"%s\",\"via_station_id\":null,\"arrival_station_id\":\"%s\",\"exchangeable_pnr_id\":null}}"%(self.format_date(self.request_start_date), self.discountCard, self.origin.id, self.destination.id)
-        self.request_counter+=1
-        response = requests.post(self._base_url, headers=self._headers, data = payload)
         if response.status_code == 429:
             raise TooManyCallsError(error_code = 429, num_requests = self.request_counter, requests_start_time=self.query_start_time)
         if response.status_code == 400:
             self.logger.error("Got 400 error with response: {}".format(response.text))
-            raise RequestException(400, "sent payload", payload)
+            error_code = response.json()["code"]
+            # if the error is "no result", raising custom error to carry on
+            if error_code == "no_results":
+                raise NoResultError("No Results")
+            # if it's something different, raising 400
+            else:
+                raise RequestException(400, "sent payload", payload)
         return response.json()
+
     @LogDecorator(_logger_name)
-    def _make_next_request(self, search):
-        url = self._base_url+'/{}/next'.format(search["id"])
-        self.request_counter+=1
-        response = requests.get(url, headers=self._headers)
-        if response.status_code == 429:
-            raise TooManyCallsError(error_code = 429, num_requests = self.request_counter, requests_start_time=self.query_start_time)
-        if response.status_code == 400:
-            self.logger.error("Got 400 error with response: {}".format(response.text))
-            raise RequestException(400, "requested url", url)
-        return response.json()
+    def _make_initial_request(self, date):
+        self.logger.debug("Making initial request with start_date = {}".format(self.format_date(date)))
+
+        payload = "{\"search\":{\"departure_date\":\"%s\",\"return_date\":null,\"passengers\":[{\"id\":\"b5966fff-a11a-4508-92de-5551c154d5c9\",\"label\":\"adult\",\"age\":26,\"cards\":[{\"reference\":\"%s\"}],\"cui\":null}],\"systems\":[\"sncf\",\"db\",\"idtgv\",\"ouigo\",\"trenitalia\",\"ntv\",\"hkx\",\"renfe\",\"cff\",\"benerail\",\"ocebo\",\"westbahn\",\"leoexpress\",\"locomore\",\"busbud\",\"flixbus\",\"distribusion\",\"cityairporttrain\",\"obb\",\"timetable\"],\"exchangeable_part\":null,\"source\":null,\"is_previous_available\":false,\"is_next_available\":false,\"departure_station_id\":\"%s\",\"via_station_id\":null,\"arrival_station_id\":\"%s\",\"exchangeable_pnr_id\":null}}"%(self.format_date(date), self.discountCard, self.origin.id, self.destination.id)
+
+        return requests.post(self._base_url, headers=self._headers, data = payload)
+    @LogDecorator(_logger_name)
+    def _make_next_request(self, search_id):
+        self.logger.debug("Making next request with search_id = {}".format(search_id))
+        url = self._base_url+'/{}/next'.format(search_id)
+        return requests.get(url, headers=self._headers)
     def make_proposal(self, response):
         # defining trip columns
         columns = [

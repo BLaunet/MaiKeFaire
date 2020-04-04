@@ -23,7 +23,7 @@ def crawl_trip(data_dir, origin, destination, discountCard, nr_of_days, max_wait
     end_date = start_date + datetime.timedelta(days=nr_of_days)
     offers = trip.getProposals(start_date, end_date)
     query_datetime = datetime.datetime.now()
-    offers.loc[:, "query_datetime"] = query_datetime
+    offers["query_datetime"] = query_datetime
     data_dir = Path(data_dir) / '{}_{}'.format(trip.origin.slug, trip.destination.slug)
     if not data_dir.exists():
         data_dir.mkdir(parents=True)

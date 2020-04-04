@@ -32,11 +32,13 @@ class TooManyCallsError(RequestException):
         error_type = "TooManyCallsError"
         error_message = "Triggered {} requests in {:.2f}s".format(num_requests, time.time()-requests_start_time)
         super(RequestException, self).__init__(error_code, error_type, error_message, *args, **kwargs)
-
-
+class NoResultError(RequestException):
+    pass
 class LogDecorator(object):
-    def __init__(self, name=None):
+    def __init__(self, name=None, input=True, output=True):
         self.logger = logging.getLogger(name)
+        self.input = input
+        self.output = output
 
     def __call__(self, fn):
         @functools.wraps(fn)
@@ -47,9 +49,15 @@ class LogDecorator(object):
                     arg_values=list(args)
                     arg_values[0] = 'self'
                     arg_values = tuple(arg_values)
-                self.logger.debug("Entering {0}: args = {1} kwargs = {2}".format(fn.__qualname__, arg_values, kwargs))
+                if self.input:
+                    self.logger.debug("Entering {0}: args = {1} kwargs = {2}".format(fn.__qualname__, arg_values, kwargs))
+                else:
+                    self.logger.debug("Entering {0}".format(fn.__qualname__))
                 result = fn(*args, **kwargs)
-                self.logger.debug("Exiting {0}: ouput = {1}".format(fn.__qualname__,result))
+                if self.output:
+                    self.logger.debug("Exiting {0}: ouput = {1}".format(fn.__qualname__,result))
+                else:
+                    self.logger.debug("Exiting {0}".format(fn.__qualname__))
                 return result
             except Exception as ex:
                 self.logger.debug("Exception {0}".format(ex))
