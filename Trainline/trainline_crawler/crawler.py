@@ -77,14 +77,14 @@ class TrainlineCrawler:
         date = self.start_date
         is_next_available = False
         while date <= self.end_date:
-            self.logger.debug("Top of while loop. Date = {}".format(date))
             try:
                 if is_next_available:
                     response = self.request_trainline(search["id"], next=True)
                 else:
+                    self.logger.info("Requesting with start_date = {}".format(date))
                     response = self.request_trainline(date)
             except NoResultError:
-                self.logger.debug("Found no result, pushing date by 12 hours")
+                self.logger.info("Found no result, pushing date by 12 hours")
                 date+=datetime.timedelta(hours=12)
                 continue
 
@@ -99,7 +99,10 @@ class TrainlineCrawler:
             search = response["search"]
             is_next_available=search["is_next_available"]
             if not is_next_available:
-                proposals = self.make_proposal(response)
+                try:
+                    proposals = self.make_proposal(response)
+                except Exception as e:
+                    raise Exception(response) from e
                 self.proposals.append(proposals)
 
         self.logger.info("Got all proposals by making {} HTTP requests in {:.2f}s".format(self.request_counter, time.time() - self.query_start_time))
@@ -204,13 +207,9 @@ class TrainlineCrawler:
             "short_unsellable_reason",
             "segment_id"
         ]]
-        try:
-            trips = trips.astype({'departure_station_id': 'str', 'arrival_station_id': 'str'})
-            trips.loc[:, "departure_date"] = pd.to_datetime(trips["departure_date"], format="%Y-%m-%dT%H:%M:%S%z")
-            trips.loc[:, "arrival_date"] = pd.to_datetime(trips["arrival_date"], format="%Y-%m-%dT%H:%M:%S%z")
-        except Exception as e:
-            self.logger.debug(trips)
-            raise Exception(response) from e
+        trips = trips.astype({'departure_station_id': 'str', 'arrival_station_id': 'str'})
+        trips["departure_date"] = pd.to_datetime(trips["departure_date"], format="%Y-%m-%dT%H:%M:%S%z")
+        trips["arrival_date"] = pd.to_datetime(trips["arrival_date"], format="%Y-%m-%dT%H:%M:%S%z")
         # add station_names
         stations_columns = [
             "id",
