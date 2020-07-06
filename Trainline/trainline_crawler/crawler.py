@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import time
 from requests.exceptions import RequestException
-from trainline_crawler.utils import retry, configureLogger, LogDecorator, TooManyCallsError, NoResultError
+from trainline_crawler.utils import retry, configureLogger, LogDecorator, TooManyCallsError, NoResultError, TimeoutError
 from trainline_crawler.station import Station
 
 class TrainlineCrawler:
@@ -140,9 +140,12 @@ class TrainlineCrawler:
             # if the error is "no result", raising custom error to carry on
             if error_code == "no_results":
                 raise NoResultError("No Results")
+            # if error is timeout, we want to retry so raising custom error
+            elif error_code == "timeout":
+                raise TimeoutError("Timeout")
             # if it's something different, raising 400
             else:
-                raise RequestException(400, "sent payload", payload)
+                raise RequestException(400, "sent param", param)
         return response.json()
 
     @LogDecorator(_logger_name)

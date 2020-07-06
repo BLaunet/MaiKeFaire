@@ -34,6 +34,8 @@ class TooManyCallsError(RequestException):
         super(RequestException, self).__init__(error_code, error_type, error_message, *args, **kwargs)
 class NoResultError(RequestException):
     pass
+class TimeoutError(RequestException):
+    pass
 class LogDecorator(object):
     def __init__(self, name=None, input=True, output=True):
         self.logger = logging.getLogger(name)
@@ -70,5 +72,5 @@ def retry(max_waiting_time):
         reraise = True,
         stop=tenacity.stop_after_delay(max_waiting_time),
         wait=tenacity.wait_exponential(multiplier=1, min=1, max=max_waiting_time),
-        retry=tenacity.retry_if_exception_type(TooManyCallsError)
+        retry=(tenacity.retry_if_exception_type(TooManyCallsError) | tenacity.retry_if_exception_type(TimeoutError))
     )
